@@ -1,0 +1,5 @@
+const ecs = @import("github.com/moglang/ecs")
+
+var schema ecs.Schema = ecs.CreateSchema()
+const value ecs.Field = schema.addI32("value")
+schema.getI32([0u8, 0u8, 0u8], value)

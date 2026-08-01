@@ -1,0 +1,474 @@
+const ecsNative = @import("ecs_native")
+
+var nextWorldIdentity u64 = 1u64
+var nextSchemaIdentity u64 = 1u64
+
+const FIELD_I8 u8 = 1u8
+const FIELD_U8 u8 = 2u8
+const FIELD_I16 u8 = 3u8
+const FIELD_U16 u8 = 4u8
+const FIELD_I32 u8 = 5u8
+const FIELD_U32 u8 = 6u8
+const FIELD_I64 u8 = 7u8
+const FIELD_U64 u8 = 8u8
+const FIELD_F32 u8 = 9u8
+const FIELD_F64 u8 = 10u8
+const FIELD_BOOL u8 = 11u8
+const FIELD_ENTITY u8 = 12u8
+
+fn requireOpenWorld(world World) void {
+    if (world.closed) {
+        error("ECS world is closed")
+    }
+}
+
+fn requireOpenQuery(query Query) void {
+    if (query.closed) {
+        error("ECS query is closed")
+    }
+}
+
+fn requireOwnedComponent(worldIdentity u64, component ComponentType) void {
+    if (component.worldIdentity == 0u64 ||
+        component.worldIdentity != worldIdentity) {
+        error("ECS component type belongs to a different world")
+    }
+}
+
+fn requireComponentBytes(component ComponentType, bytes Array<u8>) void {
+    if (bytes.size() != (component.size as i64)) {
+        error("ECS component byte buffer has the wrong size")
+    }
+}
+
+fn appendComponentId(bytes Array<u8>, id u64) void {
+    bytes.push((id & 255u64) as u8)
+    bytes.push(((id >> 8u64) & 255u64) as u8)
+    bytes.push(((id >> 16u64) & 255u64) as u8)
+    bytes.push(((id >> 24u64) & 255u64) as u8)
+}
+
+fn alignSize(value u64, alignment u64) u64 {
+    const aligned u64 = (value + alignment - 1u64) & ~(alignment - 1u64)
+    if (aligned < value) {
+        error("ECS schema size overflow")
+    }
+    return aligned
+}
+
+fn writeEncoded(bytes Array<u8>, offset u64, encoded Array<u8>) void {
+    var index usize = 0usize
+    while (index < (encoded.size() as usize)) {
+        bytes[(offset as usize) + index] = encoded[index]
+        index += 1usize
+    }
+}
+
+fn isSupportedField(kind u8, size u64, alignment u64) bool {
+    if ((kind == FIELD_I8 || kind == FIELD_U8 || kind == FIELD_BOOL) &&
+        size == 1u64 && alignment == 1u64) {
+        return true
+    }
+    if ((kind == FIELD_I16 || kind == FIELD_U16) &&
+        size == 2u64 && alignment == 2u64) {
+        return true
+    }
+    if ((kind == FIELD_I32 || kind == FIELD_U32 || kind == FIELD_F32) &&
+        size == 4u64 && alignment == 4u64) {
+        return true
+    }
+    return (kind == FIELD_I64 || kind == FIELD_U64 || kind == FIELD_F64 ||
+            kind == FIELD_ENTITY) && size == 8u64 && alignment == 8u64
+}
+
+type Field struct {
+    name str
+    offset u64
+    size u64
+    alignment u64
+    kind u8
+    schemaIdentity u64
+}
+
+type Schema struct {
+    identity u64
+    byteSize u64
+    byteAlignment u64
+    frozen bool
+    names Array<str>
+
+    fn init() void {
+        this.identity = nextSchemaIdentity
+        nextSchemaIdentity += 1u64
+        if (nextSchemaIdentity == 0u64) {
+            nextSchemaIdentity = 1u64
+        }
+        this.byteSize = 0u64
+        this.byteAlignment = 1u64
+        this.frozen = false
+        this.names = []
+    }
+
+    fn add(name str, kind u8, size u64, alignment u64) Field {
+        if (this.frozen) {
+            error("ECS schema is already finalized")
+        }
+        if (name == "") {
+            error("ECS schema field name must not be empty")
+        }
+        if (!isSupportedField(kind, size, alignment)) {
+            error("ECS schema field type is unsupported")
+        }
+        for (const existing str : this.names) {
+            if (existing == name) {
+                error("ECS schema field names must be unique")
+            }
+        }
+        var field Field = Field()
+        field.name = name
+        field.offset = alignSize(this.byteSize, alignment)
+        field.size = size
+        field.alignment = alignment
+        field.kind = kind
+        field.schemaIdentity = this.identity
+        this.byteSize = field.offset + size
+        if (this.byteSize < field.offset) {
+            error("ECS schema size overflow")
+        }
+        if (alignment > this.byteAlignment) {
+            this.byteAlignment = alignment
+        }
+        this.names.push(name)
+        return field
+    }
+
+    fn addI8(name str) Field { return this.add(name, FIELD_I8, 1u64, 1u64) }
+    fn addU8(name str) Field { return this.add(name, FIELD_U8, 1u64, 1u64) }
+    fn addI16(name str) Field { return this.add(name, FIELD_I16, 2u64, 2u64) }
+    fn addU16(name str) Field { return this.add(name, FIELD_U16, 2u64, 2u64) }
+    fn addI32(name str) Field { return this.add(name, FIELD_I32, 4u64, 4u64) }
+    fn addU32(name str) Field { return this.add(name, FIELD_U32, 4u64, 4u64) }
+    fn addI64(name str) Field { return this.add(name, FIELD_I64, 8u64, 8u64) }
+    fn addU64(name str) Field { return this.add(name, FIELD_U64, 8u64, 8u64) }
+    fn addF32(name str) Field { return this.add(name, FIELD_F32, 4u64, 4u64) }
+    fn addF64(name str) Field { return this.add(name, FIELD_F64, 8u64, 8u64) }
+    fn addBool(name str) Field { return this.add(name, FIELD_BOOL, 1u64, 1u64) }
+    fn addEntity(name str) Field { return this.add(name, FIELD_ENTITY, 8u64, 8u64) }
+
+    fn finish() void {
+        if (!this.frozen) {
+            this.byteSize = alignSize(this.byteSize, this.byteAlignment)
+            this.frozen = true
+        }
+    }
+
+    fn size() u64 {
+        this.finish()
+        return this.byteSize
+    }
+
+    fn alignment() u64 {
+        this.finish()
+        return this.byteAlignment
+    }
+
+    fn buffer() Array<u8> {
+        this.finish()
+        var bytes Array<u8> = []
+        var index u64 = 0u64
+        while (index < this.byteSize) {
+            bytes.push(0u8)
+            index += 1u64
+        }
+        return bytes
+    }
+
+    fn requireField(field Field, kind u8, bytes Array<u8>) void {
+        this.finish()
+        if (field.schemaIdentity == 0u64 ||
+            field.schemaIdentity != this.identity) {
+            error("ECS field belongs to a different schema")
+        }
+        if (field.kind != kind) {
+            error("ECS field has the wrong codec type")
+        }
+        if (bytes.size() != (this.byteSize as i64)) {
+            error("ECS schema byte buffer has the wrong size")
+        }
+    }
+
+    fn putI8(bytes Array<u8>, field Field, value i8) void {
+        this.requireField(field, FIELD_I8, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 1u64))
+    }
+    fn getI8(bytes Array<u8>, field Field) i8 {
+        this.requireField(field, FIELD_I8, bytes)
+        return ecsNative.codecDecodeI64(bytes, field.offset, 1u64) as i8
+    }
+    fn putU8(bytes Array<u8>, field Field, value u8) void {
+        this.requireField(field, FIELD_U8, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 1u64))
+    }
+    fn getU8(bytes Array<u8>, field Field) u8 {
+        this.requireField(field, FIELD_U8, bytes)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 1u64) as u8
+    }
+    fn putI16(bytes Array<u8>, field Field, value i16) void {
+        this.requireField(field, FIELD_I16, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 2u64))
+    }
+    fn getI16(bytes Array<u8>, field Field) i16 {
+        this.requireField(field, FIELD_I16, bytes)
+        return ecsNative.codecDecodeI64(bytes, field.offset, 2u64) as i16
+    }
+    fn putU16(bytes Array<u8>, field Field, value u16) void {
+        this.requireField(field, FIELD_U16, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 2u64))
+    }
+    fn getU16(bytes Array<u8>, field Field) u16 {
+        this.requireField(field, FIELD_U16, bytes)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 2u64) as u16
+    }
+    fn putI32(bytes Array<u8>, field Field, value i32) void {
+        this.requireField(field, FIELD_I32, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 4u64))
+    }
+    fn getI32(bytes Array<u8>, field Field) i32 {
+        this.requireField(field, FIELD_I32, bytes)
+        return ecsNative.codecDecodeI64(bytes, field.offset, 4u64) as i32
+    }
+    fn putU32(bytes Array<u8>, field Field, value u32) void {
+        this.requireField(field, FIELD_U32, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 4u64))
+    }
+    fn getU32(bytes Array<u8>, field Field) u32 {
+        this.requireField(field, FIELD_U32, bytes)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 4u64) as u32
+    }
+    fn putI64(bytes Array<u8>, field Field, value i64) void {
+        this.requireField(field, FIELD_I64, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value, 8u64))
+    }
+    fn getI64(bytes Array<u8>, field Field) i64 {
+        this.requireField(field, FIELD_I64, bytes)
+        return ecsNative.codecDecodeI64(bytes, field.offset, 8u64)
+    }
+    fn putU64(bytes Array<u8>, field Field, value u64) void {
+        this.requireField(field, FIELD_U64, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value, 8u64))
+    }
+    fn getU64(bytes Array<u8>, field Field) u64 {
+        this.requireField(field, FIELD_U64, bytes)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 8u64)
+    }
+    fn putF32(bytes Array<u8>, field Field, value f32) void {
+        this.requireField(field, FIELD_F32, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeF32(value as f64))
+    }
+    fn getF32(bytes Array<u8>, field Field) f32 {
+        this.requireField(field, FIELD_F32, bytes)
+        return ecsNative.codecDecodeF32(bytes, field.offset) as f32
+    }
+    fn putF64(bytes Array<u8>, field Field, value f64) void {
+        this.requireField(field, FIELD_F64, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeF64(value))
+    }
+    fn getF64(bytes Array<u8>, field Field) f64 {
+        this.requireField(field, FIELD_F64, bytes)
+        return ecsNative.codecDecodeF64(bytes, field.offset)
+    }
+    fn putBool(bytes Array<u8>, field Field, value bool) void {
+        this.requireField(field, FIELD_BOOL, bytes)
+        if (value) {
+            bytes[field.offset as usize] = 1u8
+        } else {
+            bytes[field.offset as usize] = 0u8
+        }
+    }
+    fn getBool(bytes Array<u8>, field Field) bool {
+        this.requireField(field, FIELD_BOOL, bytes)
+        const value u8 = bytes[field.offset as usize]
+        if (value > 1u8) {
+            error("ECS bool encoding must be 0 or 1")
+        }
+        return value == 1u8
+    }
+    fn putEntity(bytes Array<u8>, field Field, value u64) void {
+        this.requireField(field, FIELD_ENTITY, bytes)
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value, 8u64))
+    }
+    fn getEntity(bytes Array<u8>, field Field) u64 {
+        this.requireField(field, FIELD_ENTITY, bytes)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 8u64)
+    }
+}
+
+type ComponentType struct {
+    id u64
+    name str
+    size u64
+    alignment u64
+    worldIdentity u64
+}
+
+type Query struct {
+    handle ecsNative.QueryHandle
+    worldIdentity u64
+    closed bool
+
+    fn init(handle ecsNative.QueryHandle, worldIdentity u64) void {
+        this.handle = handle
+        this.worldIdentity = worldIdentity
+        this.closed = false
+    }
+
+    fn next() bool {
+        requireOpenQuery(this)
+        return ecsNative.queryNext(this.handle)
+    }
+
+    fn entity() u64 {
+        requireOpenQuery(this)
+        return ecsNative.queryEntity(this.handle)
+    }
+
+    fn get(component ComponentType) Array<u8> {
+        requireOpenQuery(this)
+        requireOwnedComponent(this.worldIdentity, component)
+        return ecsNative.queryRead(this.handle, component.id, component.size)
+    }
+
+    fn set(component ComponentType, bytes Array<u8>) void {
+        requireOpenQuery(this)
+        requireOwnedComponent(this.worldIdentity, component)
+        requireComponentBytes(component, bytes)
+        ecsNative.queryWrite(this.handle, component.id, bytes)
+    }
+
+    fn close() void {
+        requireOpenQuery(this)
+        ecsNative.queryDestroy(this.handle)
+        this.closed = true
+    }
+}
+
+type World struct {
+    handle ecsNative.WorldHandle
+    identity u64
+    closed bool
+
+    fn init() void {
+        this.handle = ecsNative.worldCreate()
+        this.identity = nextWorldIdentity
+        nextWorldIdentity += 1u64
+        if (nextWorldIdentity == 0u64) {
+            nextWorldIdentity = 1u64
+        }
+        this.closed = false
+    }
+
+    fn create() u64 {
+        requireOpenWorld(this)
+        return ecsNative.entityCreate(this.handle)
+    }
+
+    fn destroy(entity u64) void {
+        requireOpenWorld(this)
+        ecsNative.entityDestroy(this.handle, entity)
+    }
+
+    fn isAlive(entity u64) bool {
+        requireOpenWorld(this)
+        return ecsNative.entityIsAlive(this.handle, entity)
+    }
+
+    fn component(name str, size u64, alignment u64) ComponentType {
+        requireOpenWorld(this)
+        var component ComponentType = ComponentType()
+        component.id = ecsNative.componentRegister(
+            this.handle,
+            name,
+            size,
+            alignment
+        )
+        component.name = name
+        component.size = size
+        component.alignment = alignment
+        component.worldIdentity = this.identity
+        return component
+    }
+
+    fn componentFromSchema(name str, schema Schema) ComponentType {
+        return this.component(name, schema.size(), schema.alignment())
+    }
+
+    fn add(entity u64, component ComponentType, bytes Array<u8>) void {
+        requireOpenWorld(this)
+        requireOwnedComponent(this.identity, component)
+        requireComponentBytes(component, bytes)
+        ecsNative.componentAdd(this.handle, entity, component.id, bytes)
+    }
+
+    fn remove(entity u64, component ComponentType) void {
+        requireOpenWorld(this)
+        requireOwnedComponent(this.identity, component)
+        ecsNative.componentRemove(this.handle, entity, component.id)
+    }
+
+    fn has(entity u64, component ComponentType) bool {
+        requireOpenWorld(this)
+        requireOwnedComponent(this.identity, component)
+        return ecsNative.componentHas(this.handle, entity, component.id)
+    }
+
+    fn get(entity u64, component ComponentType) Array<u8> {
+        requireOpenWorld(this)
+        requireOwnedComponent(this.identity, component)
+        return ecsNative.componentRead(
+            this.handle,
+            entity,
+            component.id,
+            component.size
+        )
+    }
+
+    fn set(entity u64, component ComponentType, bytes Array<u8>) void {
+        requireOpenWorld(this)
+        requireOwnedComponent(this.identity, component)
+        requireComponentBytes(component, bytes)
+        ecsNative.componentWrite(this.handle, entity, component.id, bytes)
+    }
+
+    fn query(components Array<ComponentType>) Query {
+        requireOpenWorld(this)
+        if (components.size() < 1i64 || components.size() > 3i64) {
+            error("ECS queries require one to three component types")
+        }
+        var encoded Array<u8> = []
+        for (const component ComponentType : components) {
+            requireOwnedComponent(this.identity, component)
+            appendComponentId(encoded, component.id)
+        }
+        var query Query = Query()
+        query.init(ecsNative.queryCreate(this.handle, encoded), this.identity)
+        return query
+    }
+
+    fn close() void {
+        requireOpenWorld(this)
+        ecsNative.worldDestroy(this.handle)
+        this.closed = true
+    }
+}
+
+fn CreateWorld() World {
+    var world World = World()
+    world.init()
+    return world
+}
+
+fn CreateSchema() Schema {
+    var schema Schema = Schema()
+    schema.init()
+    return schema
+}

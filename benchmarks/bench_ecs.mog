@@ -1,0 +1,65 @@
+const ecs = @import("github.com/moglang/ecs")
+
+fn run(count i64) void {
+    var world ecs.World = ecs.CreateWorld()
+    const position ecs.ComponentType = world.component("Position", 8u64, 4u64)
+    const velocity ecs.ComponentType = world.component("Velocity", 8u64, 4u64)
+    var entities Array<u64> = []
+
+    var start f64 = clock()
+    var index i64 = 0i64
+    while (index < count) {
+        entities.push(world.create())
+        index += 1i64
+    }
+    print("ecs n=" + str(count) + " mog entity-create seconds=" + str(clock() - start))
+
+    start = clock()
+    for (const entity u64 : entities) {
+        world.add(entity, position, [1u8, 0u8, 0u8, 0u8, 2u8, 0u8, 0u8, 0u8])
+        world.add(entity, velocity, [3u8, 0u8, 0u8, 0u8, 4u8, 0u8, 0u8, 0u8])
+    }
+    print("ecs n=" + str(count) + " mog component-add-two seconds=" + str(clock() - start))
+
+    start = clock()
+    for (const entity u64 : entities) {
+        world.isAlive(entity)
+    }
+    print("ecs n=" + str(count) + " mog-native-call isAlive seconds=" + str(clock() - start))
+
+    start = clock()
+    var one ecs.Query = world.query([position])
+    var oneCount i64 = 0i64
+    while (one.next()) { oneCount += 1i64 }
+    one.close()
+    print("ecs n=" + str(count) + " mog query-one seconds=" + str(clock() - start))
+
+    start = clock()
+    var two ecs.Query = world.query([position, velocity])
+    var twoCount i64 = 0i64
+    while (two.next()) {
+        var bytes Array<u8> = two.get(position)
+        bytes[0usize] += 1u8
+        two.set(position, bytes)
+        twoCount += 1i64
+    }
+    two.close()
+    print("ecs n=" + str(count) + " mog query-two-copy-update seconds=" + str(clock() - start))
+
+    if (oneCount != count || twoCount != count) {
+        error("ECS benchmark query count mismatch")
+    }
+
+    start = clock()
+    for (const entity u64 : entities) { world.remove(entity, velocity) }
+    print("ecs n=" + str(count) + " mog component-remove seconds=" + str(clock() - start))
+
+    start = clock()
+    for (const entity u64 : entities) { world.destroy(entity) }
+    print("ecs n=" + str(count) + " mog entity-destroy seconds=" + str(clock() - start))
+    world.close()
+}
+
+run(1000i64)
+run(10000i64)
+run(100000i64)

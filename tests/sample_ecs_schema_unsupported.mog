@@ -1,0 +1,4 @@
+const ecs = @import("github.com/moglang/ecs")
+
+var schema ecs.Schema = ecs.CreateSchema()
+schema.add("managed", 255u8, 8u64, 8u64)

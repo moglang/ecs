@@ -1,0 +1,22 @@
+package ecs
+
+@doc("An ECS component registration tied to one World.")
+type ComponentType struct
+
+@doc("A typed field in a deterministic fixed-layout ECS schema.")
+type Field struct
+
+@doc("An explicit little-endian fixed-layout schema for ECS component bytes.")
+type Schema struct
+
+@doc("An explicit ECS query iterator invalidated by structural world changes.")
+type Query struct
+
+@doc("An owning ECS world. Create one with CreateWorld().")
+type World struct
+
+@doc("Create an initialized ECS world.")
+fn CreateWorld() World
+
+@doc("Create an empty fixed-layout component schema.")
+fn CreateSchema() Schema

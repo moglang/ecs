@@ -1,0 +1,13 @@
+namespace = "github"
+name = "ecs-native"
+version = "0.1.0"
+license = "MIT"
+abi_version = 3
+mog_runtime = "^0.1.5"
+author = "Mog contributors"
+description = "Private C++ bindings for github.com/moglang/ecs."
+dependencies = []
+
+[native]
+build = "cmake"
+targets = ["linux-x86_64-gnu", "linux-arm64-gnu", "macos-arm64"]

@@ -1,0 +1,52 @@
+const ecs = @import("ecs_native")
+
+fn require(condition bool, message str) void {
+    if (!condition) {
+        error(message)
+    }
+}
+
+const world ecs.WorldHandle = ecs.worldCreate()
+const position u64 = ecs.componentRegister(world, "Position", 4u64, 4u64)
+const velocity u64 = ecs.componentRegister(world, "Velocity", 4u64, 4u64)
+const first u64 = ecs.entityCreate(world)
+const second u64 = ecs.entityCreate(world)
+
+ecs.componentAdd(world, first, position, [1u8, 2u8, 3u8, 4u8])
+ecs.componentAdd(world, first, velocity, [5u8, 6u8, 7u8, 8u8])
+ecs.componentAdd(world, second, position, [9u8, 10u8, 11u8, 12u8])
+
+require(ecs.entityIsAlive(world, first), "first entity should be alive")
+require(ecs.componentHas(world, first, position), "position should exist")
+require(!ecs.componentHas(world, second, velocity), "velocity should be absent")
+
+const initial Array<u8> = ecs.componentRead(world, first, position, 4u64)
+require(initial[0usize] == 1u8 && initial[3usize] == 4u8,
+        "component read should preserve bytes")
+ecs.componentWrite(world, first, position, [20u8, 21u8, 22u8, 255u8])
+
+const query ecs.QueryHandle = ecs.queryCreate(
+    world,
+    [position as u8, 0u8, 0u8, 0u8, velocity as u8, 0u8, 0u8, 0u8]
+)
+var visits i64 = 0i64
+while (ecs.queryNext(query)) {
+    require(ecs.queryEntity(query) == first, "only first should match")
+    const bytes Array<u8> = ecs.queryRead(query, position, 4u64)
+    require(bytes[0usize] == 20u8 && bytes[3usize] == 255u8,
+            "query read should see component write")
+    ecs.queryWrite(query, position, [30u8, 31u8, 32u8, 33u8])
+    visits += 1i64
+}
+require(visits == 1i64, "query should visit one matching entity")
+ecs.queryDestroy(query)
+
+const updated Array<u8> = ecs.componentRead(world, first, position, 4u64)
+require(updated[0usize] == 30u8 && updated[3usize] == 33u8,
+        "query write should persist")
+ecs.componentRemove(world, first, velocity)
+require(!ecs.componentHas(world, first, velocity), "velocity should be removed")
+ecs.entityDestroy(world, first)
+require(!ecs.entityIsAlive(world, first), "destroyed entity should not be alive")
+ecs.worldDestroy(world)
+print("ecs_native_ok")

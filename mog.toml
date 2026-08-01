@@ -1,0 +1,15 @@
+kind = "source"
+module = "github.com/moglang/ecs"
+import_name = "ecs"
+namespace = "github"
+name = "ecs"
+version = "0.1.0"
+license = "MIT"
+mog_runtime = "^0.1.5"
+author = "Mog contributors"
+description = "A native-performance C++ entity-component-system package for Mog."
+repository = "https://github.com/moglang/ecs"
+entry = "src/main.mog"
+
+[dependencies]
+ecs_native = { package = "github:ecs-native", version = "0.1.0" }

@@ -1,0 +1,36 @@
+const ecs = @import("github.com/moglang/ecs")
+
+fn require(condition bool, message str) void {
+    if (!condition) {
+        error(message)
+    }
+}
+
+var world ecs.World = ecs.CreateWorld()
+const position ecs.ComponentType = world.component("Position", 4u64, 4u64)
+const velocity ecs.ComponentType = world.component("Velocity", 4u64, 4u64)
+
+var created i64 = 0i64
+while (created < 10000i64) {
+    const entity u64 = world.create()
+    world.add(entity, position, [1u8, 2u8, 3u8, 4u8])
+    world.add(entity, velocity, [5u8, 6u8, 7u8, 8u8])
+    created += 1i64
+}
+
+var query ecs.Query = world.query([position, velocity])
+var visits i64 = 0i64
+while (query.next()) {
+    const entity u64 = query.entity()
+    require(world.isAlive(entity), "query returned a dead entity")
+    const bytes Array<u8> = query.get(position)
+    require(bytes[0usize] == 1u8 && bytes[3usize] == 4u8,
+            "query returned incorrect Position bytes")
+    query.set(position, [9u8, 10u8, 11u8, 12u8])
+    visits += 1i64
+}
+
+require(visits == 10000i64, "query did not visit every matching entity")
+query.close()
+world.close()
+print("ecs_wrapper_ok")

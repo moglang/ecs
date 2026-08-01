@@ -1,0 +1,5 @@
+/build/
+/.mog/
+/mog.lock
+/native/package.so
+/native/package.dylib

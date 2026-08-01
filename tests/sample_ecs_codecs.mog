@@ -1,0 +1,76 @@
+const ecs = @import("github.com/moglang/ecs")
+
+fn require(condition bool, message str) void {
+    if (!condition) {
+        error(message)
+    }
+}
+
+var positionSchema ecs.Schema = ecs.CreateSchema()
+const x ecs.Field = positionSchema.addF32("x")
+const y ecs.Field = positionSchema.addF32("y")
+require(positionSchema.size() == 8u64, "Position layout should be 8 bytes")
+require(positionSchema.alignment() == 4u64, "Position alignment should be 4")
+
+var positionBytes Array<u8> = positionSchema.buffer()
+positionSchema.putF32(positionBytes, x, 1.5f32)
+positionSchema.putF32(positionBytes, y, -2.25f32)
+require(positionSchema.getF32(positionBytes, x) == 1.5f32,
+        "Position.x did not round-trip")
+require(positionSchema.getF32(positionBytes, y) == -2.25f32,
+        "Position.y did not round-trip")
+
+var scalarSchema ecs.Schema = ecs.CreateSchema()
+const signed8 ecs.Field = scalarSchema.addI8("signed8")
+const unsigned8 ecs.Field = scalarSchema.addU8("unsigned8")
+const signed16 ecs.Field = scalarSchema.addI16("signed16")
+const unsigned16 ecs.Field = scalarSchema.addU16("unsigned16")
+const signed32 ecs.Field = scalarSchema.addI32("signed32")
+const unsigned32 ecs.Field = scalarSchema.addU32("unsigned32")
+const signed64 ecs.Field = scalarSchema.addI64("signed64")
+const unsigned64 ecs.Field = scalarSchema.addU64("unsigned64")
+const float32 ecs.Field = scalarSchema.addF32("float32")
+const float64 ecs.Field = scalarSchema.addF64("float64")
+const flag ecs.Field = scalarSchema.addBool("flag")
+const entityId ecs.Field = scalarSchema.addEntity("entity")
+
+var values Array<u8> = scalarSchema.buffer()
+scalarSchema.putI8(values, signed8, -100i8)
+scalarSchema.putU8(values, unsigned8, 250u8)
+scalarSchema.putI16(values, signed16, -30000i16)
+scalarSchema.putU16(values, unsigned16, 60000u16)
+scalarSchema.putI32(values, signed32, -2000000000i32)
+scalarSchema.putU32(values, unsigned32, 4000000000u32)
+scalarSchema.putI64(values, signed64, -5000000000i64)
+scalarSchema.putU64(values, unsigned64, 18000000000000000000u64)
+scalarSchema.putF32(values, float32, 3.25f32)
+scalarSchema.putF64(values, float64, -123.5f64)
+scalarSchema.putBool(values, flag, true)
+scalarSchema.putEntity(values, entityId, 8589934593u64)
+
+require(scalarSchema.getI8(values, signed8) == -100i8, "i8 round trip failed")
+require(scalarSchema.getU8(values, unsigned8) == 250u8, "u8 round trip failed")
+require(scalarSchema.getI16(values, signed16) == -30000i16, "i16 round trip failed")
+require(scalarSchema.getU16(values, unsigned16) == 60000u16, "u16 round trip failed")
+require(scalarSchema.getI32(values, signed32) == -2000000000i32, "i32 round trip failed")
+require(scalarSchema.getU32(values, unsigned32) == 4000000000u32, "u32 round trip failed")
+require(scalarSchema.getI64(values, signed64) == -5000000000i64, "i64 round trip failed")
+require(scalarSchema.getU64(values, unsigned64) == 18000000000000000000u64,
+        "u64 round trip failed")
+require(scalarSchema.getF32(values, float32) == 3.25f32, "f32 round trip failed")
+require(scalarSchema.getF64(values, float64) == -123.5f64, "f64 round trip failed")
+require(scalarSchema.getBool(values, flag), "bool round trip failed")
+require(scalarSchema.getEntity(values, entityId) == 8589934593u64,
+        "entity round trip failed")
+
+var world ecs.World = ecs.CreateWorld()
+const position ecs.ComponentType = world.componentFromSchema("Position", positionSchema)
+const entity u64 = world.create()
+world.add(entity, position, positionBytes)
+const stored Array<u8> = world.get(entity, position)
+require(positionSchema.getF32(stored, x) == 1.5f32 &&
+        positionSchema.getF32(stored, y) == -2.25f32,
+        "Position was corrupted by ECS storage")
+world.close()
+
+print("ecs_codecs_ok")

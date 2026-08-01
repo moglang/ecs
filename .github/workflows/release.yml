@@ -1,0 +1,115 @@
+name: Release package artifacts
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: linux-x86_64-gnu
+          - runner: ubuntu-24.04-arm
+            target: linux-arm64-gnu
+          - runner: macos-14
+            target: macos-arm64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: moglang/mog
+          ref: main
+          path: .runtime/mog
+      - name: Verify tag and manifest versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' mog.toml | head -n 1)"
+          native_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' native/mog.toml | head -n 1)"
+          test -n "$version"
+          test "$native_version" = "$version"
+          grep -Fq "## $version" CHANGELOG.md
+          grep -Fq '"${{ matrix.target }}"' native/mog.toml
+          cmp NativePackageAPI.hpp .runtime/mog/src/NativePackageAPI.hpp
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            test "${GITHUB_REF_NAME#v}" = "$version"
+          fi
+      - name: Build Mog runtime
+        run: |
+          cmake -S .runtime/mog -B .runtime/mog/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build .runtime/mog/build --parallel
+      - name: Build and test ECS package
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DMOG_EXECUTABLE="$GITHUB_WORKSPACE/.runtime/mog/build/mog"
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
+      - name: Bundle package artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_bundle="dist/ecs-source"
+          native_bundle="dist/ecs-native-${{ matrix.target }}"
+          mkdir -p "$source_bundle/src" "$native_bundle"
+          cp mog.toml package.api.mog LICENSE README.md CHANGELOG.md "$source_bundle/"
+          cp src/main.mog "$source_bundle/src/"
+          cp native/mog.toml native/package.api.mog native/package.toml "$native_bundle/"
+          cp LICENSE README.md CHANGELOG.md "$native_bundle/"
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            cp build/native/package.so "$native_bundle/package.so"
+          else
+            cp build/native/package.so "$native_bundle/package.dylib"
+          fi
+          tar -C dist -czf ecs-source.tar.gz ecs-source
+          tar -C dist -czf "ecs-native-${{ matrix.target }}.tar.gz" \
+            "ecs-native-${{ matrix.target }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ecs-${{ matrix.target }}
+          path: |
+            ecs-source.tar.gz
+            ecs-native-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release assets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Remove duplicate source archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          first="$(find dist -name ecs-source.tar.gz -print -quit)"
+          cp "$first" dist/ecs-source-release.tar.gz
+          find dist -name ecs-source.tar.gz -delete
+      - name: Generate checksums
+        run: sha256sum dist/*.tar.gz > dist/SHA256SUMS
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true

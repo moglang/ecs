@@ -1,0 +1,41 @@
+package ecs_native
+
+@doc("GC-managed opaque ECS world handle.")
+@native_handle("WorldHandle")
+opaque type WorldHandle
+
+@doc("GC-managed opaque ECS query handle.")
+@native_handle("QueryHandle")
+opaque type QueryHandle
+
+fn worldCreate() WorldHandle
+fn worldDestroy(world WorldHandle) void
+
+fn entityCreate(world WorldHandle) u64
+fn entityDestroy(world WorldHandle, entity u64) void
+fn entityIsAlive(world WorldHandle, entity u64) bool
+
+fn componentRegister(world WorldHandle, name str, size u64, alignment u64) u64
+fn componentAdd(world WorldHandle, entity u64, componentType u64, bytes Array<u8>) void
+fn componentRemove(world WorldHandle, entity u64, componentType u64) void
+fn componentHas(world WorldHandle, entity u64, componentType u64) bool
+fn componentRead(world WorldHandle, entity u64, componentType u64, size u64) Array<u8>
+fn componentWrite(world WorldHandle, entity u64, componentType u64, bytes Array<u8>) void
+
+@doc("Create a query from little-endian u32 component type IDs.")
+fn queryCreate(world WorldHandle, componentTypes Array<u8>) QueryHandle
+fn queryNext(query QueryHandle) bool
+fn queryEntity(query QueryHandle) u64
+fn queryRead(query QueryHandle, componentType u64, size u64) Array<u8>
+fn queryWrite(query QueryHandle, componentType u64, bytes Array<u8>) void
+fn queryDestroy(query QueryHandle) void
+
+@doc("Internal deterministic little-endian fixed-width codec helpers.")
+fn codecEncodeI64(value i64, width u64) Array<u8>
+fn codecEncodeU64(value u64, width u64) Array<u8>
+fn codecDecodeI64(bytes Array<u8>, offset u64, width u64) i64
+fn codecDecodeU64(bytes Array<u8>, offset u64, width u64) u64
+fn codecEncodeF32(value f64) Array<u8>
+fn codecDecodeF32(bytes Array<u8>, offset u64) f64
+fn codecEncodeF64(value f64) Array<u8>
+fn codecDecodeF64(bytes Array<u8>, offset u64) f64
