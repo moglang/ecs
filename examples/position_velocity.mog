@@ -1,0 +1,65 @@
+const ecs = @import("github.com/moglang/ecs")
+
+fn require(condition bool, message str) void {
+    if (!condition) {
+        error(message)
+    }
+}
+
+// Define the plain, fixed-size data carried by each component.
+var positionLayout ecs.Schema = ecs.CreateSchema()
+const x ecs.Field = positionLayout.addF32("x")
+const y ecs.Field = positionLayout.addF32("y")
+
+var velocityLayout ecs.Schema = ecs.CreateSchema()
+const dx ecs.Field = velocityLayout.addF32("dx")
+const dy ecs.Field = velocityLayout.addF32("dy")
+
+var world ecs.World = ecs.CreateWorld()
+const position ecs.ComponentType =
+    world.componentFromSchema("Position", positionLayout)
+const velocity ecs.ComponentType =
+    world.componentFromSchema("Velocity", velocityLayout)
+
+const entity u64 = world.create()
+
+var positionBytes Array<u8> = positionLayout.buffer()
+positionLayout.putF32(positionBytes, x, 10.0f32)
+positionLayout.putF32(positionBytes, y, 20.0f32)
+world.add(entity, position, positionBytes)
+
+var velocityBytes Array<u8> = velocityLayout.buffer()
+velocityLayout.putF32(velocityBytes, dx, 2.5f32)
+velocityLayout.putF32(velocityBytes, dy, -1.0f32)
+world.add(entity, velocity, velocityBytes)
+
+// One simulation tick: Position += Velocity for every matching entity.
+var moving ecs.Query = world.query([position, velocity])
+while (moving.next()) {
+    var currentPosition Array<u8> = moving.get(position)
+    const currentVelocity Array<u8> = moving.get(velocity)
+
+    positionLayout.putF32(
+        currentPosition,
+        x,
+        positionLayout.getF32(currentPosition, x) +
+            velocityLayout.getF32(currentVelocity, dx)
+    )
+    positionLayout.putF32(
+        currentPosition,
+        y,
+        positionLayout.getF32(currentPosition, y) +
+            velocityLayout.getF32(currentVelocity, dy)
+    )
+    moving.set(position, currentPosition)
+}
+moving.close()
+
+const updated Array<u8> = world.get(entity, position)
+require(positionLayout.getF32(updated, x) == 12.5f32,
+        "Position.x was not updated")
+require(positionLayout.getF32(updated, y) == 19.0f32,
+        "Position.y was not updated")
+
+world.close()
+print("position_velocity_ok")

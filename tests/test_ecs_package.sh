@@ -135,4 +135,14 @@ if [[ $UNSUPPORTED_STATUS -eq 0 ]] ||
     exit 1
 fi
 
+EXAMPLE_OUTPUT="$($INTERPRETER "$REPOSITORY/examples/position_velocity.mog" 2>&1)" || {
+    printf '%s\n' "$EXAMPLE_OUTPUT"
+    exit 1
+}
+
+if [[ "$EXAMPLE_OUTPUT" != *"position_velocity_ok"* ]]; then
+    printf 'missing ECS example success marker:\n%s\n' "$EXAMPLE_OUTPUT"
+    exit 1
+fi
+
 printf 'ecs native package tests passed\n'
