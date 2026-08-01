@@ -2,22 +2,22 @@ const ecs = @import("github.com/moglang/ecs")
 
 fn run(count i64) void {
     var world ecs.World = ecs.CreateWorld()
-    const position ecs.ComponentType = world.component("Position", 8u64, 4u64)
-    const velocity ecs.ComponentType = world.component("Velocity", 8u64, 4u64)
+    const position ecs.ComponentType = world.component("Position", 8, 4)
+    const velocity ecs.ComponentType = world.component("Velocity", 8, 4)
     var entities Array<u64> = []
 
     var start f64 = clock()
-    var index i64 = 0i64
+    var index i64 = 0
     while (index < count) {
         entities.push(world.create())
-        index += 1i64
+        index += 1
     }
     print("ecs n=" + str(count) + " mog entity-create seconds=" + str(clock() - start))
 
     start = clock()
     for (const entity u64 : entities) {
-        world.add(entity, position, [1u8, 0u8, 0u8, 0u8, 2u8, 0u8, 0u8, 0u8])
-        world.add(entity, velocity, [3u8, 0u8, 0u8, 0u8, 4u8, 0u8, 0u8, 0u8])
+        world.add(entity, position, [1, 0, 0, 0, 2, 0, 0, 0])
+        world.add(entity, velocity, [3, 0, 0, 0, 4, 0, 0, 0])
     }
     print("ecs n=" + str(count) + " mog component-add-two seconds=" + str(clock() - start))
 
@@ -29,19 +29,19 @@ fn run(count i64) void {
 
     start = clock()
     var one ecs.Query = world.query([position])
-    var oneCount i64 = 0i64
-    while (one.next()) { oneCount += 1i64 }
+    var oneCount i64 = 0
+    while (one.next()) { oneCount += 1 }
     one.close()
     print("ecs n=" + str(count) + " mog query-one seconds=" + str(clock() - start))
 
     start = clock()
     var two ecs.Query = world.query([position, velocity])
-    var twoCount i64 = 0i64
+    var twoCount i64 = 0
     while (two.next()) {
         var bytes Array<u8> = two.get(position)
         bytes[0usize] += 1u8
         two.set(position, bytes)
-        twoCount += 1i64
+        twoCount += 1
     }
     two.close()
     print("ecs n=" + str(count) + " mog query-two-copy-update seconds=" + str(clock() - start))
@@ -60,6 +60,6 @@ fn run(count i64) void {
     world.close()
 }
 
-run(1000i64)
-run(10000i64)
-run(100000i64)
+run(1000)
+run(10000)
+run(100000)

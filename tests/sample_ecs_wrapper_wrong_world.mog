@@ -2,6 +2,6 @@ const ecs = @import("github.com/moglang/ecs")
 
 var first ecs.World = ecs.CreateWorld()
 var second ecs.World = ecs.CreateWorld()
-const component ecs.ComponentType = first.component("Value", 1u64, 1u64)
+const component ecs.ComponentType = first.component("Value", 1, 1)
 const entity u64 = second.create()
-second.add(entity, component, [1u8])
+second.add(entity, component, [1])

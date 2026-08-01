@@ -1,13 +1,13 @@
 const ecs = @import("ecs_native")
 
 const world ecs.WorldHandle = ecs.worldCreate()
-const value u64 = ecs.componentRegister(world, "Value", 1u64, 1u64)
+const value u64 = ecs.componentRegister(world, "Value", 1, 1)
 const first u64 = ecs.entityCreate(world)
-ecs.componentAdd(world, first, value, [1u8])
+ecs.componentAdd(world, first, value, [1])
 const query ecs.QueryHandle = ecs.queryCreate(
     world,
-    [value as u8, 0u8, 0u8, 0u8]
+    [value as u8, 0, 0, 0]
 )
 const second u64 = ecs.entityCreate(world)
-ecs.componentAdd(world, second, value, [2u8])
+ecs.componentAdd(world, second, value, [2])
 print(ecs.queryNext(query))
