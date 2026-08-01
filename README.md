@@ -20,13 +20,13 @@ safe fallback and are idempotent with explicit closure.
 ```mog
 const ecs = @import("github.com/moglang/ecs")
 
-var layout ecs.Schema = ecs.CreateSchema()
-const x ecs.Field = layout.addF32("x")
-const y ecs.Field = layout.addF32("y")
+var schema ecs.Schema = ecs.CreateSchema()
+const x ecs.Field = schema.addF32("x")
+const y ecs.Field = schema.addF32("y")
 
-var bytes Array<u8> = layout.buffer()
-layout.putF32(bytes, x, 10.0f32)
-layout.putF32(bytes, y, 20.0f32)
+var bytes Array<u8> = schema.buffer()
+schema.putF32(bytes, x, 10.0)
+schema.putF32(bytes, y, 20.0)
 ```
 
 See [examples/position_velocity.mog](examples/position_velocity.mog) for a
