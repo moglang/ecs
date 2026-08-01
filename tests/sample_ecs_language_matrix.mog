@@ -7,49 +7,49 @@ fn require(condition bool, message str) void {
 }
 
 var world ecs.World = ecs.CreateWorld()
-const a ecs.ComponentType = world.component("A", 1u64, 1u64)
-const b ecs.ComponentType = world.component("B", 1u64, 1u64)
-const c ecs.ComponentType = world.component("C", 1u64, 1u64)
-const absent ecs.ComponentType = world.component("Absent", 1u64, 1u64)
+const a ecs.ComponentType = world.component("A", 1, 1)
+const b ecs.ComponentType = world.component("B", 1, 1)
+const c ecs.ComponentType = world.component("C", 1, 1)
+const absent ecs.ComponentType = world.component("Absent", 1, 1)
 
 const all u64 = world.create()
-world.add(all, a, [1u8])
-world.add(all, b, [2u8])
-world.add(all, c, [3u8])
+world.add(all, a, [1])
+world.add(all, b, [2])
+world.add(all, c, [3])
 
 const pair u64 = world.create()
-world.add(pair, a, [4u8])
-world.add(pair, b, [5u8])
+world.add(pair, a, [4])
+world.add(pair, b, [5])
 
 const single u64 = world.create()
-world.add(single, a, [6u8])
+world.add(single, a, [6])
 
 var one ecs.Query = world.query([a])
-var oneCount i64 = 0i64
-while (one.next()) { oneCount += 1i64 }
-require(oneCount == 3i64, "one-component query count was wrong")
+var oneCount i64 = 0
+while (one.next()) { oneCount += 1 }
+require(oneCount == 3, "one-component query count was wrong")
 one.close()
 
 var two ecs.Query = world.query([a, b])
-var twoCount i64 = 0i64
+var twoCount i64 = 0
 while (two.next()) {
     var bytes Array<u8> = two.get(a)
     bytes[0usize] += 10u8
     two.set(a, bytes)
-    twoCount += 1i64
+    twoCount += 1
 }
-require(twoCount == 2i64, "two-component query count was wrong")
+require(twoCount == 2, "two-component query count was wrong")
 two.close()
 require(world.get(all, a)[0usize] == 11u8 && world.get(pair, a)[0usize] == 14u8,
         "nonstructural query writes were not retained")
 
 var three ecs.Query = world.query([a, b, c])
-var threeCount i64 = 0i64
+var threeCount i64 = 0
 while (three.next()) {
     require(three.entity() == all, "three-component query returned wrong entity")
-    threeCount += 1i64
+    threeCount += 1
 }
-require(threeCount == 1i64, "three-component query count was wrong")
+require(threeCount == 1, "three-component query count was wrong")
 three.close()
 
 var empty ecs.Query = world.query([absent])

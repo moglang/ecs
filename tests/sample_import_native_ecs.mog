@@ -7,41 +7,41 @@ fn require(condition bool, message str) void {
 }
 
 const world ecs.WorldHandle = ecs.worldCreate()
-const position u64 = ecs.componentRegister(world, "Position", 4u64, 4u64)
-const velocity u64 = ecs.componentRegister(world, "Velocity", 4u64, 4u64)
+const position u64 = ecs.componentRegister(world, "Position", 4, 4)
+const velocity u64 = ecs.componentRegister(world, "Velocity", 4, 4)
 const first u64 = ecs.entityCreate(world)
 const second u64 = ecs.entityCreate(world)
 
-ecs.componentAdd(world, first, position, [1u8, 2u8, 3u8, 4u8])
-ecs.componentAdd(world, first, velocity, [5u8, 6u8, 7u8, 8u8])
-ecs.componentAdd(world, second, position, [9u8, 10u8, 11u8, 12u8])
+ecs.componentAdd(world, first, position, [1, 2, 3, 4])
+ecs.componentAdd(world, first, velocity, [5, 6, 7, 8])
+ecs.componentAdd(world, second, position, [9, 10, 11, 12])
 
 require(ecs.entityIsAlive(world, first), "first entity should be alive")
 require(ecs.componentHas(world, first, position), "position should exist")
 require(!ecs.componentHas(world, second, velocity), "velocity should be absent")
 
-const initial Array<u8> = ecs.componentRead(world, first, position, 4u64)
+const initial Array<u8> = ecs.componentRead(world, first, position, 4)
 require(initial[0usize] == 1u8 && initial[3usize] == 4u8,
         "component read should preserve bytes")
-ecs.componentWrite(world, first, position, [20u8, 21u8, 22u8, 255u8])
+ecs.componentWrite(world, first, position, [20, 21, 22, 255])
 
 const query ecs.QueryHandle = ecs.queryCreate(
     world,
-    [position as u8, 0u8, 0u8, 0u8, velocity as u8, 0u8, 0u8, 0u8]
+    [position as u8, 0, 0, 0, velocity as u8, 0, 0, 0]
 )
-var visits i64 = 0i64
+var visits i64 = 0
 while (ecs.queryNext(query)) {
     require(ecs.queryEntity(query) == first, "only first should match")
-    const bytes Array<u8> = ecs.queryRead(query, position, 4u64)
+    const bytes Array<u8> = ecs.queryRead(query, position, 4)
     require(bytes[0usize] == 20u8 && bytes[3usize] == 255u8,
             "query read should see component write")
-    ecs.queryWrite(query, position, [30u8, 31u8, 32u8, 33u8])
-    visits += 1i64
+    ecs.queryWrite(query, position, [30, 31, 32, 33])
+    visits += 1
 }
-require(visits == 1i64, "query should visit one matching entity")
+require(visits == 1, "query should visit one matching entity")
 ecs.queryDestroy(query)
 
-const updated Array<u8> = ecs.componentRead(world, first, position, 4u64)
+const updated Array<u8> = ecs.componentRead(world, first, position, 4)
 require(updated[0usize] == 30u8 && updated[3usize] == 33u8,
         "query write should persist")
 ecs.componentRemove(world, first, velocity)

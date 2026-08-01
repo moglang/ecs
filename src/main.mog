@@ -1,20 +1,20 @@
 const ecsNative = @import("ecs_native")
 
-var nextWorldIdentity u64 = 1u64
-var nextSchemaIdentity u64 = 1u64
+var nextWorldIdentity u64 = 1
+var nextSchemaIdentity u64 = 1
 
-const FIELD_I8 u8 = 1u8
-const FIELD_U8 u8 = 2u8
-const FIELD_I16 u8 = 3u8
-const FIELD_U16 u8 = 4u8
-const FIELD_I32 u8 = 5u8
-const FIELD_U32 u8 = 6u8
-const FIELD_I64 u8 = 7u8
-const FIELD_U64 u8 = 8u8
-const FIELD_F32 u8 = 9u8
-const FIELD_F64 u8 = 10u8
-const FIELD_BOOL u8 = 11u8
-const FIELD_ENTITY u8 = 12u8
+const FIELD_I8 u8 = 1
+const FIELD_U8 u8 = 2
+const FIELD_I16 u8 = 3
+const FIELD_U16 u8 = 4
+const FIELD_I32 u8 = 5
+const FIELD_U32 u8 = 6
+const FIELD_I64 u8 = 7
+const FIELD_U64 u8 = 8
+const FIELD_F32 u8 = 9
+const FIELD_F64 u8 = 10
+const FIELD_BOOL u8 = 11
+const FIELD_ENTITY u8 = 12
 
 fn requireOpenWorld(world World) void {
     if (world.closed) {
@@ -57,7 +57,7 @@ fn alignSize(value u64, alignment u64) u64 {
 }
 
 fn writeEncoded(bytes Array<u8>, offset u64, encoded Array<u8>) void {
-    var index usize = 0usize
+    var index usize = 0
     while (index < (encoded.size() as usize)) {
         bytes[(offset as usize) + index] = encoded[index]
         index += 1usize
@@ -103,8 +103,8 @@ type Schema struct {
         if (nextSchemaIdentity == 0u64) {
             nextSchemaIdentity = 1u64
         }
-        this.byteSize = 0u64
-        this.byteAlignment = 1u64
+        this.byteSize = 0
+        this.byteAlignment = 1
         this.frozen = false
         this.names = []
     }
@@ -142,18 +142,18 @@ type Schema struct {
         return field
     }
 
-    fn addI8(name str) Field { return this.add(name, FIELD_I8, 1u64, 1u64) }
-    fn addU8(name str) Field { return this.add(name, FIELD_U8, 1u64, 1u64) }
-    fn addI16(name str) Field { return this.add(name, FIELD_I16, 2u64, 2u64) }
-    fn addU16(name str) Field { return this.add(name, FIELD_U16, 2u64, 2u64) }
-    fn addI32(name str) Field { return this.add(name, FIELD_I32, 4u64, 4u64) }
-    fn addU32(name str) Field { return this.add(name, FIELD_U32, 4u64, 4u64) }
-    fn addI64(name str) Field { return this.add(name, FIELD_I64, 8u64, 8u64) }
-    fn addU64(name str) Field { return this.add(name, FIELD_U64, 8u64, 8u64) }
-    fn addF32(name str) Field { return this.add(name, FIELD_F32, 4u64, 4u64) }
-    fn addF64(name str) Field { return this.add(name, FIELD_F64, 8u64, 8u64) }
-    fn addBool(name str) Field { return this.add(name, FIELD_BOOL, 1u64, 1u64) }
-    fn addEntity(name str) Field { return this.add(name, FIELD_ENTITY, 8u64, 8u64) }
+    fn addI8(name str) Field { return this.add(name, FIELD_I8, 1, 1) }
+    fn addU8(name str) Field { return this.add(name, FIELD_U8, 1, 1) }
+    fn addI16(name str) Field { return this.add(name, FIELD_I16, 2, 2) }
+    fn addU16(name str) Field { return this.add(name, FIELD_U16, 2, 2) }
+    fn addI32(name str) Field { return this.add(name, FIELD_I32, 4, 4) }
+    fn addU32(name str) Field { return this.add(name, FIELD_U32, 4, 4) }
+    fn addI64(name str) Field { return this.add(name, FIELD_I64, 8, 8) }
+    fn addU64(name str) Field { return this.add(name, FIELD_U64, 8, 8) }
+    fn addF32(name str) Field { return this.add(name, FIELD_F32, 4, 4) }
+    fn addF64(name str) Field { return this.add(name, FIELD_F64, 8, 8) }
+    fn addBool(name str) Field { return this.add(name, FIELD_BOOL, 1, 1) }
+    fn addEntity(name str) Field { return this.add(name, FIELD_ENTITY, 8, 8) }
 
     fn finish() void {
         if (!this.frozen) {
@@ -175,9 +175,9 @@ type Schema struct {
     fn buffer() Array<u8> {
         this.finish()
         var bytes Array<u8> = []
-        var index u64 = 0u64
+        var index u64 = 0
         while (index < this.byteSize) {
-            bytes.push(0u8)
+            bytes.push(0)
             index += 1u64
         }
         return bytes
@@ -199,67 +199,67 @@ type Schema struct {
 
     fn putI8(bytes Array<u8>, field Field, value i8) void {
         this.requireField(field, FIELD_I8, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 1u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 1))
     }
     fn getI8(bytes Array<u8>, field Field) i8 {
         this.requireField(field, FIELD_I8, bytes)
-        return ecsNative.codecDecodeI64(bytes, field.offset, 1u64) as i8
+        return ecsNative.codecDecodeI64(bytes, field.offset, 1) as i8
     }
     fn putU8(bytes Array<u8>, field Field, value u8) void {
         this.requireField(field, FIELD_U8, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 1u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 1))
     }
     fn getU8(bytes Array<u8>, field Field) u8 {
         this.requireField(field, FIELD_U8, bytes)
-        return ecsNative.codecDecodeU64(bytes, field.offset, 1u64) as u8
+        return ecsNative.codecDecodeU64(bytes, field.offset, 1) as u8
     }
     fn putI16(bytes Array<u8>, field Field, value i16) void {
         this.requireField(field, FIELD_I16, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 2u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 2))
     }
     fn getI16(bytes Array<u8>, field Field) i16 {
         this.requireField(field, FIELD_I16, bytes)
-        return ecsNative.codecDecodeI64(bytes, field.offset, 2u64) as i16
+        return ecsNative.codecDecodeI64(bytes, field.offset, 2) as i16
     }
     fn putU16(bytes Array<u8>, field Field, value u16) void {
         this.requireField(field, FIELD_U16, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 2u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 2))
     }
     fn getU16(bytes Array<u8>, field Field) u16 {
         this.requireField(field, FIELD_U16, bytes)
-        return ecsNative.codecDecodeU64(bytes, field.offset, 2u64) as u16
+        return ecsNative.codecDecodeU64(bytes, field.offset, 2) as u16
     }
     fn putI32(bytes Array<u8>, field Field, value i32) void {
         this.requireField(field, FIELD_I32, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 4u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value as i64, 4))
     }
     fn getI32(bytes Array<u8>, field Field) i32 {
         this.requireField(field, FIELD_I32, bytes)
-        return ecsNative.codecDecodeI64(bytes, field.offset, 4u64) as i32
+        return ecsNative.codecDecodeI64(bytes, field.offset, 4) as i32
     }
     fn putU32(bytes Array<u8>, field Field, value u32) void {
         this.requireField(field, FIELD_U32, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 4u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value as u64, 4))
     }
     fn getU32(bytes Array<u8>, field Field) u32 {
         this.requireField(field, FIELD_U32, bytes)
-        return ecsNative.codecDecodeU64(bytes, field.offset, 4u64) as u32
+        return ecsNative.codecDecodeU64(bytes, field.offset, 4) as u32
     }
     fn putI64(bytes Array<u8>, field Field, value i64) void {
         this.requireField(field, FIELD_I64, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value, 8u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeI64(value, 8))
     }
     fn getI64(bytes Array<u8>, field Field) i64 {
         this.requireField(field, FIELD_I64, bytes)
-        return ecsNative.codecDecodeI64(bytes, field.offset, 8u64)
+        return ecsNative.codecDecodeI64(bytes, field.offset, 8)
     }
     fn putU64(bytes Array<u8>, field Field, value u64) void {
         this.requireField(field, FIELD_U64, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value, 8u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value, 8))
     }
     fn getU64(bytes Array<u8>, field Field) u64 {
         this.requireField(field, FIELD_U64, bytes)
-        return ecsNative.codecDecodeU64(bytes, field.offset, 8u64)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 8)
     }
     fn putF32(bytes Array<u8>, field Field, value f32) void {
         this.requireField(field, FIELD_F32, bytes)
@@ -280,9 +280,9 @@ type Schema struct {
     fn putBool(bytes Array<u8>, field Field, value bool) void {
         this.requireField(field, FIELD_BOOL, bytes)
         if (value) {
-            bytes[field.offset as usize] = 1u8
+            bytes[field.offset as usize] = 1
         } else {
-            bytes[field.offset as usize] = 0u8
+            bytes[field.offset as usize] = 0
         }
     }
     fn getBool(bytes Array<u8>, field Field) bool {
@@ -295,11 +295,11 @@ type Schema struct {
     }
     fn putEntity(bytes Array<u8>, field Field, value u64) void {
         this.requireField(field, FIELD_ENTITY, bytes)
-        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value, 8u64))
+        writeEncoded(bytes, field.offset, ecsNative.codecEncodeU64(value, 8))
     }
     fn getEntity(bytes Array<u8>, field Field) u64 {
         this.requireField(field, FIELD_ENTITY, bytes)
-        return ecsNative.codecDecodeU64(bytes, field.offset, 8u64)
+        return ecsNative.codecDecodeU64(bytes, field.offset, 8)
     }
 }
 
@@ -441,7 +441,7 @@ type World struct {
 
     fn query(components Array<ComponentType>) Query {
         requireOpenWorld(this)
-        if (components.size() < 1i64 || components.size() > 3i64) {
+        if (components.size() < 1 || components.size() > 3) {
             error("ECS queries require one to three component types")
         }
         var encoded Array<u8> = []
