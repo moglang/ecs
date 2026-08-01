@@ -20,14 +20,19 @@ safe fallback and are idempotent with explicit closure.
 ```mog
 const ecs = @import("github.com/moglang/ecs")
 
-var world ecs.World = ecs.CreateWorld()
-const position ecs.ComponentType = world.component("Position", 8u64, 4u64)
+var layout ecs.Schema = ecs.CreateSchema()
+const x ecs.Field = layout.addF32("x")
+const y ecs.Field = layout.addF32("y")
 
-const entity u64 = world.create()
-world.add(entity, position, [0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8])
-
-world.close()
+var bytes Array<u8> = layout.buffer()
+layout.putF32(bytes, x, 10.0f32)
+layout.putF32(bytes, y, 20.0f32)
 ```
+
+See [examples/position_velocity.mog](examples/position_velocity.mog) for a
+runnable Position/Velocity update loop using schemas, typed `f32` fields, and
+queries. The low-level `component(name, size, alignment)` and raw-byte APIs are
+for interoperability and advanced packed-data use cases.
 
 The repository contains the public source wrapper at its root and the private
 `github:ecs-native` binding under `native/`. See `lib/README.md` for the
