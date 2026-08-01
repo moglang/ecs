@@ -17,6 +17,18 @@ component bytes through `Query.set` is nonstructural and safe during iteration.
 Call `Query.close()` and `World.close()` when practical; GC finalizers are a
 safe fallback and are idempotent with explicit closure.
 
+```mog
+const ecs = @import("github.com/moglang/ecs")
+
+var world ecs.World = ecs.CreateWorld()
+const position ecs.ComponentType = world.component("Position", 8u64, 4u64)
+
+const entity u64 = world.create()
+world.add(entity, position, [0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8])
+
+world.close()
+```
+
 The repository contains the public source wrapper at its root and the private
 `github:ecs-native` binding under `native/`. See `lib/README.md` for the
 complete layout, lifetime, and C API rules.
