@@ -7,30 +7,30 @@ fn require(condition bool, message str) void {
 }
 
 // Define the plain, fixed-size data carried by each component.
-var positionLayout ecs.Schema = ecs.CreateSchema()
-const x ecs.Field = positionLayout.addF32("x")
-const y ecs.Field = positionLayout.addF32("y")
+var positionSchema ecs.Schema = ecs.CreateSchema()
+const x ecs.Field = positionSchema.addF32("x")
+const y ecs.Field = positionSchema.addF32("y")
 
-var velocityLayout ecs.Schema = ecs.CreateSchema()
-const dx ecs.Field = velocityLayout.addF32("dx")
-const dy ecs.Field = velocityLayout.addF32("dy")
+var velocitySchema ecs.Schema = ecs.CreateSchema()
+const dx ecs.Field = velocitySchema.addF32("dx")
+const dy ecs.Field = velocitySchema.addF32("dy")
 
 var world ecs.World = ecs.CreateWorld()
 const position ecs.ComponentType =
-    world.componentFromSchema("Position", positionLayout)
+    world.componentFromSchema("Position", positionSchema)
 const velocity ecs.ComponentType =
-    world.componentFromSchema("Velocity", velocityLayout)
+    world.componentFromSchema("Velocity", velocitySchema)
 
 const entity u64 = world.create()
 
-var positionBytes Array<u8> = positionLayout.buffer()
-positionLayout.putF32(positionBytes, x, 10.0f32)
-positionLayout.putF32(positionBytes, y, 20.0f32)
+var positionBytes Array<u8> = positionSchema.buffer()
+positionSchema.putF32(positionBytes, x, 10.0)
+positionSchema.putF32(positionBytes, y, 20.0)
 world.add(entity, position, positionBytes)
 
-var velocityBytes Array<u8> = velocityLayout.buffer()
-velocityLayout.putF32(velocityBytes, dx, 2.5f32)
-velocityLayout.putF32(velocityBytes, dy, -1.0f32)
+var velocityBytes Array<u8> = velocitySchema.buffer()
+velocitySchema.putF32(velocityBytes, dx, 2.5)
+velocitySchema.putF32(velocityBytes, dy, -1.0)
 world.add(entity, velocity, velocityBytes)
 
 // One simulation tick: Position += Velocity for every matching entity.
@@ -39,26 +39,26 @@ while (moving.next()) {
     var currentPosition Array<u8> = moving.get(position)
     const currentVelocity Array<u8> = moving.get(velocity)
 
-    positionLayout.putF32(
+    positionSchema.putF32(
         currentPosition,
         x,
-        positionLayout.getF32(currentPosition, x) +
-            velocityLayout.getF32(currentVelocity, dx)
+        positionSchema.getF32(currentPosition, x) +
+            velocitySchema.getF32(currentVelocity, dx)
     )
-    positionLayout.putF32(
+    positionSchema.putF32(
         currentPosition,
         y,
-        positionLayout.getF32(currentPosition, y) +
-            velocityLayout.getF32(currentVelocity, dy)
+        positionSchema.getF32(currentPosition, y) +
+            velocitySchema.getF32(currentVelocity, dy)
     )
     moving.set(position, currentPosition)
 }
 moving.close()
 
 const updated Array<u8> = world.get(entity, position)
-require(positionLayout.getF32(updated, x) == 12.5f32,
+require(positionSchema.getF32(updated, x) == 12.5f32,
         "Position.x was not updated")
-require(positionLayout.getF32(updated, y) == 19.0f32,
+require(positionSchema.getF32(updated, y) == 19.0f32,
         "Position.y was not updated")
 
 world.close()
